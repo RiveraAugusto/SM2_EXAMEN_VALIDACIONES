@@ -1,15 +1,25 @@
 import { Platform } from 'react-native';
 
-const DEFAULT_DEV_WEB_API_BASE_URL = 'http://localhost:8000';
+const getDefaultDevWebApiBaseUrl = () => {
+  const hostname =
+    typeof window !== 'undefined' && window.location?.hostname
+      ? window.location.hostname
+      : 'localhost';
+  const protocol =
+    typeof window !== 'undefined' && window.location?.protocol
+      ? window.location.protocol
+      : 'http:';
+  return `${protocol}//${hostname}:8000`;
+};
 const DEFAULT_DEV_ANDROID_EMULATOR_API_BASE_URL = 'http://10.0.2.2:8000';
 const DEFAULT_DEV_IOS_SIMULATOR_API_BASE_URL = 'http://localhost:8000';
 const DEFAULT_PROD_API_BASE_URL = 'http://alda-upt.sytes.net:8300';
 
 const getDefaultDevApiBaseUrl = () => {
-  if (Platform.OS === 'web') return DEFAULT_DEV_WEB_API_BASE_URL;
+  if (Platform.OS === 'web') return getDefaultDevWebApiBaseUrl();
   if (Platform.OS === 'android') return DEFAULT_DEV_ANDROID_EMULATOR_API_BASE_URL;
   if (Platform.OS === 'ios') return DEFAULT_DEV_IOS_SIMULATOR_API_BASE_URL;
-  return DEFAULT_DEV_WEB_API_BASE_URL;
+  return getDefaultDevWebApiBaseUrl();
 };
 
 const API_BASE_URL =

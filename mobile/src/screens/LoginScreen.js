@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Image, StatusBar, Platform,
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Image, StatusBar, Platform, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleAuthProvider, signInWithCredential, signInWithPopup } from 'firebase/auth';
@@ -24,10 +24,66 @@ if (Platform.OS !== 'web') {
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const insets = useSafeAreaInsets();
-  const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [formEmail, setFormEmail] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState({ email: '', password: '' });
+
+  const validateEmail = (value) => {
+    const trimmed = (value || '').trim();
+    if (!trimmed) return 'El correo es obligatorio.';
+    const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+    if (!emailRegex.test(trimmed)) return 'Ingresa un correo válido (ej. usuario@dominio.com).';
+    return '';
+  };
+
+  const validatePassword = (value) => {
+    const password = value || '';
+    if (!password) return 'La contraseña es obligatoria.';
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return 'Mínimo 8 caracteres, 1 mayúscula, 1 minúscula y 1 número.';
+    }
+    return '';
+  };
+
+  const validateForm = ({ email, password }) => {
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+    const nextErrors = { email: emailError, password: passwordError };
+    setFormErrors(nextErrors);
+    return !emailError && !passwordError;
+  };
+
+  const handleEmailChange = (value) => {
+    setFormEmail(value);
+    if (!submitAttempted) return;
+    setFormErrors((prev) => ({ ...prev, email: validateEmail(value) }));
+  };
+
+  const handlePasswordChange = (value) => {
+    setFormPassword(value);
+    if (!submitAttempted) return;
+    setFormErrors((prev) => ({ ...prev, password: validatePassword(value) }));
+  };
+
+  const handleSubmit = async () => {
+    setSubmitAttempted(true);
+    const ok = validateForm({ email: formEmail, password: formPassword });
+    if (!ok) return;
+
+    setFormSubmitting(true);
+    setTimeout(() => {
+      setFormSubmitting(false);
+      Alert.alert('Listo', 'Validación exitosa. Envío simulado por 2 segundos.', [{ text: 'OK' }]);
+    }, 2000);
+  };
 
   const handleGoogleLogin = async () => {
-    setIsLoading(true);
+    setGoogleLoading(true);
     try {
       let firebaseUser;
 
@@ -63,7 +119,7 @@ export default function LoginScreen() {
         Alert.alert('Error de Autenticación', message, [{ text: 'OK' }]);
       }
     } finally {
-      setIsLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -102,13 +158,85 @@ export default function LoginScreen() {
           Conecta con la comunidad académica. Publica dudas, ofrece mentoría y gana experiencia.
         </Text>
 
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>Inicia sesión</Text>
+
+          <Text style={styles.inputLabel}>Correo electrónico</Text>
+          <View style={styles.inputWrap}>
+            <Ionicons name="mail-outline" size={18} color={COLORS.textMuted} style={{ marginRight: 10 }} />
+            <TextInput
+              style={styles.input}
+              placeholder="usuario@dominio.com"
+              placeholderTextColor={COLORS.textMuted}
+              value={formEmail}
+              onChangeText={handleEmailChange}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!formSubmitting && !googleLoading}
+            />
+          </View>
+          {submitAttempted && !!formErrors.email && <Text style={styles.errorText}>{formErrors.email}</Text>}
+
+          <Text style={[styles.inputLabel, { marginTop: SPACING.md }]}>Contraseña</Text>
+          <View style={styles.inputWrap}>
+            <Ionicons name="lock-closed-outline" size={18} color={COLORS.textMuted} style={{ marginRight: 10 }} />
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="********"
+              placeholderTextColor={COLORS.textMuted}
+              value={formPassword}
+              onChangeText={handlePasswordChange}
+              secureTextEntry={!showPassword}
+              keyboardType={Platform.OS === 'android' ? 'visible-password' : 'default'}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!formSubmitting && !googleLoading}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword((v) => !v)}
+              style={styles.eyeBtn}
+              disabled={formSubmitting || googleLoading}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          </View>
+          {submitAttempted && !!formErrors.password && <Text style={styles.errorText}>{formErrors.password}</Text>}
+
+          <TouchableOpacity
+            style={[styles.submitBtn, (formSubmitting || googleLoading) && styles.submitBtnDisabled]}
+            onPress={handleSubmit}
+            disabled={formSubmitting || googleLoading}
+            activeOpacity={0.8}
+          >
+            {formSubmitting ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color={COLORS.textLight} size="small" />
+                <Text style={[styles.loadingText, { color: COLORS.textLight }]}>Enviando...</Text>
+              </View>
+            ) : (
+              <View style={styles.submitBtnContent}>
+                <Ionicons name="log-in-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
+                <Text style={styles.submitBtnLabel}>Enviar</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>o</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
         <TouchableOpacity
-          style={[styles.googleBtn, isLoading && styles.googleBtnDisabled]}
+          style={[styles.googleBtn, googleLoading && styles.googleBtnDisabled]}
           onPress={handleGoogleLogin}
-          disabled={isLoading}
+          disabled={googleLoading || formSubmitting}
           activeOpacity={0.8}
         >
-          {isLoading ? (
+          {googleLoading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color={COLORS.primary} size="small" />
               <Text style={styles.loadingText}>Conectando...</Text>
@@ -173,6 +301,43 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: { fontSize: FONTS.sizes.hero, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.sm },
   welcomeSub: { fontSize: FONTS.sizes.md, color: COLORS.textSecondary, lineHeight: 24, marginBottom: SPACING.xl },
+  formCard: {
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    marginBottom: SPACING.lg,
+  },
+  formTitle: { fontSize: FONTS.sizes.lg, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.md },
+  inputLabel: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: COLORS.textSecondary, marginBottom: SPACING.xs },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+  },
+  input: { flex: 1, fontSize: FONTS.sizes.md, color: COLORS.textPrimary },
+  eyeBtn: { paddingLeft: 10, paddingVertical: 4 },
+  errorText: { marginTop: 6, fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.error },
+  submitBtn: {
+    marginTop: SPACING.lg,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
+    paddingVertical: 14,
+    paddingHorizontal: SPACING.lg,
+    ...SHADOWS.medium,
+  },
+  submitBtnDisabled: { opacity: 0.65 },
+  submitBtnContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  submitBtnLabel: { fontSize: FONTS.sizes.md, fontWeight: '800', color: COLORS.textLight },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.borderLight },
+  dividerText: { marginHorizontal: 10, fontSize: FONTS.sizes.sm, color: COLORS.textMuted, fontWeight: '700' },
   googleBtn: {
     backgroundColor: COLORS.surface, borderRadius: RADIUS.sm, paddingVertical: 16, paddingHorizontal: SPACING.lg,
     borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.medium,
